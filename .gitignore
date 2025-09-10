@@ -1,0 +1,81 @@
+# Unity generated files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+
+# Asset meta data should only be ignored when the corresponding asset is also ignored
+*.pidb.meta
+*.pdb.meta
+
+# User-specific files
+[Tt]estResults/
+[Dd]ebug*/
+
+# Visual Studio
+.vs/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
+
+# Rider
+.idea/
+*.sln.iml
+
+# OS generated files
+.DS_Store
+*.apk
+*.aab
+*.swp
+
+# Large model files (optional, adjust as needed)
+*.fbx
+*.obj
+*.blend
+*.3ds
+*.dae
+*.max
+*.c4d
+*.lwo
+*.lws
+*.stl
+*.ply
+*.gltf
+*.glb
+
+# Ignore package manager
+Packages/packages-lock.json
+
+# Ignore build artifacts
+Build/
+Builds/
+
+# Ignore crash reports
+CrashReports/
+
+# Ignore auto-generated files
+AutoSave/
+
+# Ignore other Unity folders
+Assets/AssetStoreTools*
+
+# Uncomment if using git-lfs for large files
+# *.fbx filter=lfs diff=lfs merge=lfs -text
+
+# Ignorar todos os arquivos .meta
+*.meta
