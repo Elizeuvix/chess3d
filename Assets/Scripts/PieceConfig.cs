@@ -5,6 +5,12 @@ using System.Linq;
 
 public class PieceConfig : MonoBehaviour
 {
+    void Awake()
+    {
+        // LEGACY: desativado para evitar eventos OnMouse e lÃ³gica antiga interferindo no novo core.
+        // Caso precise reativar para referÃªncia histÃ³rica, remova esta linha.
+        enabled = false;
+    }
     public PieceType pieceType;
     public PlayerPieces pieceColor;
     public string pieceName;
@@ -13,7 +19,7 @@ public class PieceConfig : MonoBehaviour
     public TargetSelect targetSelect;
 
     Color baseColor;
-    bool isPreSelected = false;
+    // (Removed legacy isPreSelected flag; hover visuals retained without tracking.)
     bool isSelected = false;
 
     [Header("Movement")]
@@ -40,11 +46,12 @@ public class PieceConfig : MonoBehaviour
     private BoardController boardController;
 
     //Captured Piece
-    bool isCaptured = false;
+    // Removed legacy capture flag (was never read). Capture will be represented by absence of piece in core state.
+    // bool isCaptured = false; // (Removed) LEGACY flag; real capture flow will move to core state
     //[HideInInspector] 
     public PieceConfig capturedBy = null;
     //[HideInInspector] 
-    public PieceConfig lastSquare = null;
+    public PieceConfig lastSquare = null; // Tracks previous square (legacy path tracking)
 
     [Header("Dead Peaces")]
     public int deadPosition = 999;
@@ -127,7 +134,7 @@ public class PieceConfig : MonoBehaviour
             {
                 PieceConfig config = pieceMovingCollider.GetComponent<PieceConfig>();
                 if (!config.IsAllowedMovement(this)) {
-                    Debug.Log("Movimento não permitido!");
+                    Debug.Log("Movimento nï¿½o permitido!");
                     return; 
                 }
             
@@ -154,10 +161,10 @@ public class PieceConfig : MonoBehaviour
 
     private void OnMouseEnter()
     {
+        if (targetSelect == null || rend == null) return; // legado desativado
         if (targetSelect.HasSelected() && pieceType == PieceType.SQUARE) 
         {
             this.rend.material.color = Color.green;
-            isPreSelected = true;
         }
         else if (!targetSelect.HasSelected() && pieceType != PieceType.SQUARE)
         {
@@ -169,21 +176,19 @@ public class PieceConfig : MonoBehaviour
             {
                 this.rend.material.color = Color.yellow;
             }
-            isPreSelected = true;
         }        
     }
 
     private void OnMouseExit()
     {
+        if (targetSelect == null || rend == null) return; // legado desativado
         if (targetSelect.HasSelected() && pieceType == PieceType.SQUARE)
         {
             NormalizeColor();
-            isPreSelected = false;
         }
         else if (!targetSelect.HasSelected() && pieceType != PieceType.SQUARE)
         {
             NormalizeColor();
-            isPreSelected = false;
         }
     }
 
@@ -313,7 +318,7 @@ public class PieceConfig : MonoBehaviour
                         }
                     }
                 }
-                else //square está vazio
+                else //square estï¿½ vazio
                 {
                     if (selectecPiece.pieceType == PieceType.KNIGHT)
                     {                       
@@ -600,7 +605,7 @@ public class PieceConfig : MonoBehaviour
                     isClean = true;
                 }
             }
-            else //line é menor
+            else //line ï¿½ menor
             {
                 if (squareClicked.columnPos == pieceSelected.columnPos + 1 && squareClicked.linePos == pieceSelected.linePos - 1 ||
                     squareClicked.columnPos == pieceSelected.columnPos + 2 && squareClicked.linePos == pieceSelected.linePos - 2 &&
@@ -635,7 +640,7 @@ public class PieceConfig : MonoBehaviour
                 }
             }
         }
-        else //coluna é menor
+        else //coluna ï¿½ menor
         {
             if (squareClicked.linePos > pieceSelected.linePos)
             {
@@ -671,7 +676,7 @@ public class PieceConfig : MonoBehaviour
                     isClean = true;
                 }
             }
-            else //line é menor
+            else //line ï¿½ menor
             {
                 if (squareClicked.columnPos == pieceSelected.columnPos - 1 && squareClicked.linePos == pieceSelected.linePos - 1 ||
                     squareClicked.columnPos == pieceSelected.columnPos - 2 && squareClicked.linePos == pieceSelected.linePos - 2 &&
@@ -1247,8 +1252,8 @@ public class PieceConfig : MonoBehaviour
         else if (target.linePos < pieceToMove.linePos && target.columnPos > pieceToMove.columnPos)
         {
             /*/Left -> Right & top -> bottom
-            Debug.Log($"King line: {target.linePos} Peça line: {pieceToMove.linePos}");
-            Debug.Log($"King col: {target.columnPos} Peça col: {pieceToMove.columnPos}");
+            Debug.Log($"King line: {target.linePos} Peï¿½a line: {pieceToMove.linePos}");
+            Debug.Log($"King col: {target.columnPos} Peï¿½a col: {pieceToMove.columnPos}");
 
             diagonalSize = pieceToMove.linePos - target.linePos;
 
@@ -1298,7 +1303,7 @@ public class PieceConfig : MonoBehaviour
 
     public void UpdateChessBoard(PieceConfig movedPiece, PieceConfig newSquare)
     {
-        PieceConfig lastSquare = null;
+    // Removed unused local variable lastSquare (shadowed field) - not needed.
 
         foreach (PieceConfig square in boardController.allSquares)
         {

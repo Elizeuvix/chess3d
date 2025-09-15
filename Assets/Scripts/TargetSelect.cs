@@ -5,7 +5,8 @@ using TMPro;
 
 public class TargetSelect : MonoBehaviour
 {
-    public Camera camera;
+    // LEGACY: This script is being phased out by CoreInputController.
+    public new Camera camera; // kept legacy; could be renamed to mainCamera if still used
     bool hasSelected = false;
     public PlayerPieces playerPieces;
     bool startMove = false;    
@@ -48,7 +49,7 @@ public class TargetSelect : MonoBehaviour
                     }
                     else if (hitInfo.collider.gameObject.GetComponent<PieceConfig>().pieceType == PieceType.SQUARE)
                     {
-                        //Tentar mover a peça selecionada
+                        //Tentar mover a peï¿½a selecionada
                         objective = new Vector3 (hitInfo.collider.transform.position.x, 0.5f, hitInfo.collider.transform.position.z);
                         squareClicked = hitInfo.collider.transform;
                         

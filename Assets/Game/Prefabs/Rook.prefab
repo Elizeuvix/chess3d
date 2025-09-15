@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 1424284883712347897}
   - component: {fileID: 4813020739728120988}
   - component: {fileID: 8358187723126940211}
-  - component: {fileID: 6287149727680773576}
   - component: {fileID: -1334602066330569381}
   - component: {fileID: 7075002873212303411}
   m_Layer: 0
@@ -58,35 +57,6 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &6287149727680773576
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6684690826521008265}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ead86a53aec6b074c92e0ecb2b95aead, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  pieceType: 1
-  pieceColor: 0
-  pieceName: 
-  rend: {fileID: 0}
-  pieceCode: 
-  targetSelect: {fileID: 0}
-  linePos: 0
-  collumPos: 0
-  isAllowedMovement: 0
-  isMoving: 0
-  pieceMovingCollider: {fileID: 0}
-  kingInCheck: 0
-  enemyKing: {fileID: 0}
-  xeckedBy: []
-  attacking: []
-  occupiedBy: {fileID: 0}
-  deadPosition: 999
 --- !u!54 &-1334602066330569381
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -115,7 +85,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf4d8b54d333f9645a7319a0bcb2ce09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  movement: 0
+  alreadyMoved: 0
+  isAllowed: 0
+  specialSquare: {fileID: 0}
+  rook: {fileID: 0}
+  pawn: {fileID: 0}
 --- !u!1001 &3217074364574319977
 PrefabInstance:
   m_ObjectHideFlags: 0

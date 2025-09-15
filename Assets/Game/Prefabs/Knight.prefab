@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 3624686905461268249}
   - component: {fileID: 944233109331753698}
   - component: {fileID: 4879959185988680191}
-  - component: {fileID: 369699351704167498}
   - component: {fileID: -2916698872038511095}
   m_Layer: 0
   m_Name: Knight
@@ -57,31 +56,6 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &369699351704167498
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3324696363788683411}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ead86a53aec6b074c92e0ecb2b95aead, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  pieceType: 2
-  pieceColor: 0
-  pieceName: 
-  rend: {fileID: 0}
-  pieceCode: 
-  targetSelect: {fileID: 0}
-  linePos: 0
-  collumPos: 0
-  isAllowedMovement: 0
-  isMoving: 0
-  movingCol: {fileID: 0}
-  attacking: []
-  occupiedBy: {fileID: 0}
 --- !u!54 &-2916698872038511095
 Rigidbody:
   m_ObjectHideFlags: 0

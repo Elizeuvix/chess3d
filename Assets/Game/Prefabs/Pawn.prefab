@@ -11,9 +11,7 @@ GameObject:
   - component: {fileID: 7448150947241430095}
   - component: {fileID: 908286817324609879}
   - component: {fileID: 4805471235554490445}
-  - component: {fileID: 5048405779322350301}
   - component: {fileID: -6800442723000152073}
-  - component: {fileID: -7392089544752631004}
   m_Layer: 0
   m_Name: Pawn
   m_TagString: Pieces
@@ -58,35 +56,6 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &5048405779322350301
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8547050342556839309}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ead86a53aec6b074c92e0ecb2b95aead, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  pieceType: 4
-  pieceColor: 0
-  pieceName: 
-  rend: {fileID: 0}
-  pieceCode: 
-  targetSelect: {fileID: 0}
-  linePos: 0
-  collumPos: 0
-  isAllowedMovement: 0
-  isMoving: 0
-  pieceMovingCollider: {fileID: 0}
-  kingInCheck: 0
-  enemyKing: {fileID: 0}
-  xeckedBy: []
-  attacking: []
-  occupiedBy: {fileID: 0}
-  deadPosition: 999
 --- !u!54 &-6800442723000152073
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -103,19 +72,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &-7392089544752631004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8547050342556839309}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bf4d8b54d333f9645a7319a0bcb2ce09, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  movement: 0
 --- !u!1001 &2185038977646120731
 PrefabInstance:
   m_ObjectHideFlags: 0

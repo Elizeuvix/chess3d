@@ -5,6 +5,7 @@ using System.Linq;
 
 public class KingListener : MonoBehaviour
 {
+    // LEGACY: This logic will be replaced by core rule engine (king check detection) soon.
     PieceConfig kingConfig;
     BoardController boardController;
     DeadPiecesControl deadControl;
@@ -14,8 +15,7 @@ public class KingListener : MonoBehaviour
     public PieceConfig lastPieceMoved = null;
     public PieceConfig lastPieceLocal = null;
     bool undoesMovement = false;
-    PieceConfig lastMovedTemp = null;
-    PieceConfig lastLocalTemp = null;
+    // Removed unused temp fields (lastMovedTemp, lastLocalTemp) - no longer referenced.
 
     public List<PieceConfig> listThreat;
     public List<PieceConfig> peripheralThreat;
@@ -67,7 +67,7 @@ public class KingListener : MonoBehaviour
 
     private void UndoesMovement()
     {
-        bool isFakeCapture = false;
+    // isFakeCapture removed (not used in current logic)
         if (!kingConfig.kingInCheck) return;   
         if (lastPieceMoved == null) return;
         if (lastPieceMoved.pieceColor != kingConfig.pieceColor) return;        
@@ -81,16 +81,16 @@ public class KingListener : MonoBehaviour
         }
         else
         {
+            // Legacy loop removed (was setting isFakeCapture which is no longer used)
             foreach (PieceConfig item in kingConfig.xeckedBy)
             {
                 if (deadControl.lastCaptured != item) continue;
-                    isFakeCapture = true;
             }
         }
 
         //Defazendo movimento
         undoesMovement = true;
-        //o problema está na referencia da peça que foi capturada erroneamente (deadControl.lastCaptured)
+        //o problema estï¿½ na referencia da peï¿½a que foi capturada erroneamente (deadControl.lastCaptured)
         StopCoroutine(deadControl.lastCaptured.Capture(deadControl.lastCaptured, lastPieceMoved, false));
 
         targetSelect.playerPieces = lastPieceMoved.pieceColor;

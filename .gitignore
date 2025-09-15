@@ -77,5 +77,5 @@ Assets/AssetStoreTools*
 # Uncomment if using git-lfs for large files
 # *.fbx filter=lfs diff=lfs merge=lfs -text
 
-# Ignorar todos os arquivos .meta
-*.meta
+# IMPORTANTE: Não ignore todos os .meta. Unity precisa deles para manter GUIDs consistentes.
+# Se realmente quiser ignorar meta de algo específico, faça por pasta/arquivo, não global.
