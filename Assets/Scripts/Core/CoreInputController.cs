@@ -9,7 +9,9 @@ namespace Chess3D.Core
         public Camera cam;
         public LayerMask boardLayer;
         public BoardSynchronizer synchronizer;
+        [Header("Online")] public Chess3D.Online.OnlineMatchManager online;
         [Header("Promotion UI")] public PromotionChoiceUI promotionUI;
+    [Header("Help UI")] public GameObject helpPanel; public string helpPanelName = "HelpPanel"; public bool autoWireHelpPanel = true;
     private (int x,int y)? selected;
         private Move[] cachedMoves = new Move[0];
     [Header("Debug")]
@@ -22,6 +24,22 @@ namespace Chess3D.Core
             if (cam == null) cam = Camera.main;
             if (synchronizer == null) synchronizer = FindObjectOfType<BoardSynchronizer>();
             if (highlightManager == null) highlightManager = FindObjectOfType<MoveHighlightManager>();
+            if (online == null) online = FindObjectOfType<Chess3D.Online.OnlineMatchManager>();
+            if (promotionUI == null) promotionUI = FindObjectOfType<PromotionChoiceUI>(true);
+            if (autoWireHelpPanel && helpPanel == null)
+            {
+                // Procura por nomes comuns para o painel de ajuda
+                var all = FindObjectsOfType<Transform>(true);
+                foreach (var tr in all)
+                {
+                    var n = tr.name.ToLower();
+                    if (n == helpPanelName.ToLower() || n.Contains("helppanel") || (n.Contains("help") && n.Contains("panel")) || n.Contains("panelhelp"))
+                    {
+                        helpPanel = tr.gameObject;
+                        break;
+                    }
+                }
+            }
             if (synchronizer != null)
             {
                 synchronizer.OnBoardReset += HandleBoardReset;
@@ -40,8 +58,8 @@ namespace Chess3D.Core
 
         void Update()
         {
-            // Undo / Redo rápidos
-            if (Input.GetKeyDown(KeyCode.Z))
+            // Undo / Redo rápidos (desabilitados em modo online)
+            if (Input.GetKeyDown(KeyCode.Z) && (online == null || !online.IsOnlineActive))
             {
                 if (synchronizer != null && synchronizer.History.CanUndo)
                 {
@@ -50,7 +68,7 @@ namespace Chess3D.Core
                     selected = null; cachedMoves = new Move[0];
                 }
             }
-            if (Input.GetKeyDown(KeyCode.Y))
+            if (Input.GetKeyDown(KeyCode.Y) && (online == null || !online.IsOnlineActive))
             {
                 if (synchronizer != null && synchronizer.History.CanRedo)
                 {
@@ -84,6 +102,7 @@ namespace Chess3D.Core
             {
                 if (RaycastBoard(out var square))
                 {
+                    if (helpPanel != null && helpPanel.activeSelf) helpPanel.SetActive(false);
                     HandleClick(square.x, square.y);
                 }
                 else if (debugLogs)
@@ -97,9 +116,14 @@ namespace Chess3D.Core
         {
             if (selected == null)
             {
-                // Select if piece of side to move
+                // Select if piece of side to move (and matches assigned color in online)
                 var piece = synchronizer.State.GetPiece(x,y);
-                if (piece != null && piece.Color == synchronizer.State.SideToMove)
+                bool ownTurn = piece != null && piece.Color == synchronizer.State.SideToMove;
+                if (online != null && online.IsOnlineActive)
+                {
+                    ownTurn = ownTurn && piece.Color == online.AssignedColor;
+                }
+                if (ownTurn)
                 {
                     selected = (x,y);
                     cachedMoves = MoveGenerator.GenerateLegalMoves(synchronizer.State)
@@ -135,7 +159,12 @@ namespace Chess3D.Core
 
                 // Clique em outra peça do lado a mover: trocar seleção
                 var clickedPiece = synchronizer.State.GetPiece(x,y);
-                if (clickedPiece != null && clickedPiece.Color == synchronizer.State.SideToMove)
+                bool canReselect = clickedPiece != null && clickedPiece.Color == synchronizer.State.SideToMove;
+                if (online != null && online.IsOnlineActive)
+                {
+                    canReselect = canReselect && clickedPiece.Color == online.AssignedColor;
+                }
+                if (canReselect)
                 {
                     selected = (x,y);
                     cachedMoves = MoveGenerator.GenerateLegalMoves(synchronizer.State)
@@ -208,18 +237,37 @@ namespace Chess3D.Core
                     }
                     else
                     {
-                        // Movimento normal (ou promoção única)
+                        // Movimento normal OU promoção única (1 opção)
                         var mv = destMoves[0];
-                        try
+                        if (mv.Promotion != PieceType.None && promotionUI != null)
                         {
-                            synchronizer.ApplyMove(mv);
-                            found = true;
-                        }
-                        catch (System.Exception ex)
-                        {
+                            // Mesmo com uma única opção, mostre a UI para confirmação
                             if (debugLogs)
-                                Debug.LogError($"[CoreInput] Exceção ao aplicar movimento {mv}: {ex.Message}\n{ex.StackTrace}");
-                            // Mantém seleção para investigação
+                                Debug.Log($"[CoreInput] Promoção única disponível ({mv.Promotion}) — exibindo UI de confirmação");
+                            promotionUI.Show(new System.Collections.Generic.List<Move>{ mv }, x, y, _ =>
+                            {
+                                try { synchronizer.ApplyMove(mv); found = true; }
+                                catch (System.Exception ex)
+                                {
+                                    if (debugLogs) Debug.LogError($"[CoreInput] Exceção ao aplicar promoção única {mv}: {ex.Message}\n{ex.StackTrace}");
+                                }
+                                if (highlightManager != null) highlightManager.Clear();
+                                selected = null; cachedMoves = new Move[0];
+                            });
+                        }
+                        else
+                        {
+                            try
+                            {
+                                synchronizer.ApplyMove(mv);
+                                found = true;
+                            }
+                            catch (System.Exception ex)
+                            {
+                                if (debugLogs)
+                                    Debug.LogError($"[CoreInput] Exceção ao aplicar movimento {mv}: {ex.Message}\n{ex.StackTrace}");
+                                // Mantém seleção para investigação
+                            }
                         }
                     }
                 }

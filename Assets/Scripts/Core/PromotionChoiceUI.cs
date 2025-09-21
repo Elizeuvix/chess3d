@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 namespace Chess3D.Core
 {
@@ -12,9 +13,10 @@ namespace Chess3D.Core
     // - Each button's onClick wired to the corresponding OnChoose* method OR assigned automatically if you call AutoWire() and buttons are children named accordingly.
     public class PromotionChoiceUI : MonoBehaviour
     {
+        [Header("Panel alvo (pode estar fora deste GO)")] [SerializeField] private GameObject panel;
+        [SerializeField] private string panelName = "PromotionPanel";
         [Header("Buttons (assign in Inspector)")] public Button queenButton; public Button rookButton; public Button bishopButton; public Button knightButton;
-        [Header("Optional auto-wire by child names: Queen, Rook, Bishop, Knight")]
-        public bool autoWireOnAwake = true;
+        [Header("Optional auto-wire by names: Queen, Rook, Bishop, Knight")] public bool autoWireOnAwake = true;
 
     private Action<PieceType> _onChosen;
     [Header("Fallback")] public bool enableTimeoutFallback = false; public float fallbackSeconds = 5f;
@@ -24,12 +26,9 @@ namespace Chess3D.Core
 
         private void Awake()
         {
-            if (autoWireOnAwake)
-            {
-                AutoWire();
-            }
+            if (autoWireOnAwake) { AutoWire(); }
             RegisterHandlers();
-            gameObject.SetActive(false);
+            if (panel != null) panel.SetActive(false);
         }
 
         private void Start()
@@ -45,6 +44,17 @@ namespace Chess3D.Core
 
         public void AutoWire()
         {
+            // Painel
+            if (panel == null)
+            {
+                panel = FindByNameAnywhere(panelName);
+                if (panel == null)
+                {
+                    // tenta heurística por nomes comuns
+                    panel = FindByNameAnywhere("Promotion") ?? FindByNameAnywhere("PromotionPanel");
+                }
+            }
+            // Botões
             if (queenButton == null) queenButton = FindButton("Queen");
             if (rookButton == null) rookButton = FindButton("Rook");
             if (bishopButton == null) bishopButton = FindButton("Bishop");
@@ -53,9 +63,28 @@ namespace Chess3D.Core
 
         private Button FindButton(string name)
         {
-            var t = transform.Find(name);
-            if (t == null) return null;
-            return t.GetComponent<Button>();
+            Transform root = panel != null ? panel.transform : this.transform;
+            // primeiro, procura como filho direto/indireto do painel
+            var trans = root.GetComponentsInChildren<Transform>(true);
+            foreach (var tr in trans)
+            {
+                if (tr.name == name)
+                {
+                    var b = tr.GetComponent<Button>();
+                    if (b) return b;
+                }
+            }
+            // fallback: busca global
+            var all = FindObjectsOfType<Transform>(true);
+            foreach (var tr in all)
+            {
+                if (tr.name == name)
+                {
+                    var b = tr.GetComponent<Button>();
+                    if (b) return b;
+                }
+            }
+            return null;
         }
 
         private void RegisterHandlers()
@@ -66,18 +95,26 @@ namespace Chess3D.Core
             if (knightButton) knightButton.onClick.AddListener(()=>Choose(PieceType.Knight));
         }
 
+        public bool IsReady => panel != null && (queenButton || rookButton || bishopButton || knightButton);
+
         public void Show(List<Move> promotionMoves, int toX, int toY, Action<PieceType> onChosen)
         {
             _candidateMoves = promotionMoves;
             _toX = toX; _toY = toY;
             _onChosen = onChosen;
-            gameObject.SetActive(true);
+            if (panel == null) AutoWire();
+            if (panel == null)
+            {
+                Debug.LogWarning("[PromotionChoiceUI] Painel de promoção não encontrado. Verifique o nome 'PromotionPanel' ou arraste a referência no Inspector.");
+                return;
+            }
+            panel.SetActive(true);
             _shownTime = Time.time;
         }
 
         public void Hide()
         {
-            gameObject.SetActive(false);
+            if (panel != null) panel.SetActive(false);
         }
 
         private void Update()
@@ -101,6 +138,20 @@ namespace Chess3D.Core
         public void ChooseDefault()
         {
             Choose(PieceType.Queen);
+        }
+
+        private GameObject FindByNameAnywhere(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            var all = FindObjectsOfType<Transform>(true);
+            foreach (var tr in all)
+            {
+                if (tr.name == name)
+                {
+                    return tr.gameObject;
+                }
+            }
+            return null;
         }
     }
 }

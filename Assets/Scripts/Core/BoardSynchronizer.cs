@@ -211,6 +211,13 @@ namespace Chess3D.Core
             return originOffset + new Vector3(x * squareSize, 0, y * squareSize);
         }
 
+        // Public lookup for piece GameObject at board coordinates (after rebuild)
+        public GameObject? GetPieceObjectAt(int x, int y)
+        {
+            if (x < 0 || x > 7 || y < 0 || y > 7) return null;
+            return _pieces[x, y];
+        }
+
         private void AdjustVertical(GameObject go)
         {
             var rend = go.GetComponentInChildren<Renderer>();

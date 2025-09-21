@@ -138,7 +138,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: 2b3cdd6f8acae534685087ad5c3eb2e7, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: 0b12999c1b0a14a419e20d808b0b420d, type: 2}
+      objectReference: {fileID: 2100000, guid: fcdf7eb4da005214597b717b0f0c1bdd, type: 2}
     - target: {fileID: 919132149155446097, guid: 2b3cdd6f8acae534685087ad5c3eb2e7, type: 3}
       propertyPath: m_Name
       value: Bishop

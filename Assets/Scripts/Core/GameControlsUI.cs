@@ -13,6 +13,15 @@ namespace Chess3D.Core
         public Button undoButton;
         public Button redoButton;
         public Button restartButton;
+        public Toggle autoHideLobby;
+ 
+         void Awake()
+         {
+             if (synchronizer == null)
+             {
+                 synchronizer = FindObjectOfType<BoardSynchronizer>();
+             }
+         }
 
         void Start()
         {
@@ -28,6 +37,18 @@ namespace Chess3D.Core
             if (undoButton != null) undoButton.interactable = synchronizer.History.CanUndo;
             if (redoButton != null) redoButton.interactable = synchronizer.History.CanRedo;
             if (restartButton != null) restartButton.interactable = true;
+            {
+                if (synchronizer.History.CanUndo || synchronizer.History.CanRedo)
+                {
+                    if (gameObject.activeSelf) gameObject.SetActive(false);
+                }
+                else
+                {
+                    if (!gameObject.activeSelf) gameObject.SetActive(true);
+                }
+            }
+
+            
         }
 
         private void OnUndo()
