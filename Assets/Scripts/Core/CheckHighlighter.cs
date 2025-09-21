@@ -17,6 +17,8 @@ namespace Chess3D.Core
             if (synchronizer != null)
             {
                 synchronizer.OnMoveApplied += OnMoveApplied;
+                synchronizer.OnBoardReset += OnBoardReset;
+                synchronizer.OnBoardChanged += OnBoardChanged;
                 // Avaliar estado inicial (lado a mover pode estar em cheque inicial em algum cenário custom)
                 Evaluate();
             }
@@ -72,6 +74,28 @@ namespace Chess3D.Core
         {
             if (_instance != null) _instance.SetActive(false);
             _visible = false;
+        }
+
+        private void OnBoardReset(BoardState state)
+        {
+            // Ao resetar queremos uma tela “limpa”; avaliamos depois, se necessário.
+            Hide();
+        }
+
+        private void OnBoardChanged(BoardState state)
+        {
+            // Em qualquer mudança do tabuleiro (undo/redo/fen), reavaliar estado de cheque
+            Evaluate();
+        }
+
+        void OnDestroy()
+        {
+            if (synchronizer != null)
+            {
+                synchronizer.OnMoveApplied -= OnMoveApplied;
+                synchronizer.OnBoardReset -= OnBoardReset;
+                synchronizer.OnBoardChanged -= OnBoardChanged;
+            }
         }
     }
 }

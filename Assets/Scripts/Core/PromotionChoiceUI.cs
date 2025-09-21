@@ -32,6 +32,17 @@ namespace Chess3D.Core
             gameObject.SetActive(false);
         }
 
+        private void Start()
+        {
+            // Opcional: esconder automaticamente se o tabuleiro mudar (Undo/Redo/Reset/FEN) enquanto a UI estiver aberta
+            var synchronizer = FindObjectOfType<BoardSynchronizer>();
+            if (synchronizer != null)
+            {
+                synchronizer.OnBoardReset += _ => Hide();
+                synchronizer.OnBoardChanged += _ => Hide();
+            }
+        }
+
         public void AutoWire()
         {
             if (queenButton == null) queenButton = FindButton("Queen");

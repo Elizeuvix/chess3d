@@ -7,10 +7,16 @@ namespace Chess3D.Core
     {
         [Tooltip("Prefab simples usado para destacar casas. Pode ser um plano com material semi-transparente.")]
         public GameObject highlightPrefab;
+        [Tooltip("Prefab para destacar a casa de origem selecionada (se vazio, usa highlightPrefab).")]
+        public GameObject originPrefab;
         [Tooltip("Altura Y para posicionar o highlight (levemente acima do tabuleiro).")]
         public float yOffset = 0.01f;
         [Tooltip("Escala multiplicadora para casar com o tamanho da casa (1 = igual ao squareSize).")]
         public float sizeScale = 0.95f;
+        [Tooltip("Altura Y para o efeito de origem (se 0, usa yOffset).")]
+        public float originYOffset = 0.015f;
+        [Tooltip("Escala do efeito de origem (se 0, usa sizeScale).")]
+        public float originSizeScale = 0.9f;
         [Tooltip("Reutilizar instâncias em vez de destruir/criar.")]
         public bool reusePool = true;
 
@@ -19,11 +25,32 @@ namespace Chess3D.Core
     [Tooltip("Referência ao BoardSynchronizer. Se vazio, tenta GetComponent no mesmo GameObject.")]
     public BoardSynchronizer synchronizer;
 
+        private GameObject _originInst;
+
         void Awake()
         {
             if (synchronizer == null)
             {
                 synchronizer = GetComponent<BoardSynchronizer>();
+            }
+        }
+
+        void Start()
+        {
+            if (synchronizer == null) synchronizer = FindObjectOfType<BoardSynchronizer>();
+            if (synchronizer != null)
+            {
+                synchronizer.OnBoardReset += HandleBoardReset;
+                synchronizer.OnBoardChanged += HandleBoardChanged;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (synchronizer != null)
+            {
+                synchronizer.OnBoardReset -= HandleBoardReset;
+                synchronizer.OnBoardChanged -= HandleBoardChanged;
             }
         }
 
@@ -48,8 +75,44 @@ namespace Chess3D.Core
             }
         }
 
+        public void ShowSelectedOrigin(int x,int y)
+        {
+            if (synchronizer == null) return;
+            var prefab = originPrefab != null ? originPrefab : highlightPrefab;
+            if (prefab == null) return;
+            if (_originInst == null)
+            {
+                _originInst = Instantiate(prefab, transform);
+            }
+            var pos = SquareToWorld(x, y);
+            float oy = (originYOffset > 0f) ? originYOffset : yOffset;
+            pos.y = synchronizer.originOffset.y + oy;
+            _originInst.transform.position = pos;
+            float scale = (originSizeScale > 0f ? originSizeScale : sizeScale) * (synchronizer != null ? synchronizer.squareSize : 1f);
+            _originInst.transform.localScale = new Vector3(scale, _originInst.transform.localScale.y, scale);
+            _originInst.SetActive(true);
+        }
+
+        public void ClearSelectedOrigin()
+        {
+            if (_originInst != null)
+            {
+                if (reusePool)
+                {
+                    _originInst.SetActive(false);
+                }
+                else
+                {
+                    Destroy(_originInst);
+                    _originInst = null;
+                }
+            }
+        }
+
         public void Clear()
         {
+            // Esconder/limpar origem selecionada também
+            ClearSelectedOrigin();
             for (int i=0;i<_active.Count;i++)
             {
                 if (reusePool)
@@ -63,6 +126,17 @@ namespace Chess3D.Core
                 }
             }
             _active.Clear();
+        }
+
+        private void HandleBoardReset(BoardState state)
+        {
+            Clear();
+        }
+
+        private void HandleBoardChanged(BoardState state)
+        {
+            // Em qualquer mudança do tabuleiro (Apply/Undo/Redo/FEN), remover highlights atuais
+            Clear();
         }
 
         private GameObject GetInstance()

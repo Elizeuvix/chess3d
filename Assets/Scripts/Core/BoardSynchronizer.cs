@@ -23,6 +23,10 @@ namespace Chess3D.Core
     public GameHistory History { get; private set; } = new GameHistory();
     public System.Action<Move, BoardState> OnMoveApplied; // callback após aplicar
     public System.Action<GameResult, PieceColor> OnGameEnded; // resultado e lado vencedor (ou PieceColor.White para empate especial?)
+    // Disparado quando o tabuleiro é resetado/reiniciado para um novo estado base (ex.: ResetGame ou LoadFEN)
+    public System.Action<BoardState> OnBoardReset;
+    // Disparado sempre que o estado visual/model é atualizado (ApplyMove, Undo, Redo, Reset, LoadFEN)
+    public System.Action<BoardState> OnBoardChanged;
     public GameResult CurrentResult { get; private set; } = GameResult.Ongoing;
 
         private readonly GameObject?[,] _pieces = new GameObject?[8,8];
@@ -36,13 +40,32 @@ namespace Chess3D.Core
 
         public void ApplyMove(Move move)
         {
+            if (CurrentResult != GameResult.Ongoing)
+            {
+                Debug.Log("[BoardSynchronizer] Jogo já terminou. Ignorando ApplyMove.");
+                return;
+            }
             // Update model
             History.RecordPreState(State);
+            var preClone = State.Clone();
             MoveApplier.Apply(State, move);
             // Simple rebuild for now (can be optimized incrementally)
             RebuildAllPieces();
             History.AddMove(move);
+            // Compute SAN with post state
+            try
+            {
+                string san = NotationService.GenerateSAN(preClone, State, move);
+                History.AddSAN(san);
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[Notation] Falha ao gerar SAN: {ex.Message}");
+                History.AddSAN("");
+            }
+            History.ClearRedo();
             OnMoveApplied?.Invoke(move, State);
+            OnBoardChanged?.Invoke(State);
             // Avaliar término de jogo (se ainda não terminou)
             if (CurrentResult == GameResult.Ongoing)
             {
@@ -57,6 +80,16 @@ namespace Chess3D.Core
             if (restored == null) return false;
             State = restored;
             RebuildAllPieces();
+            CurrentResult = GameResult.Ongoing; // desfazer volta a estado em andamento
+            OnBoardChanged?.Invoke(State);
+            return true;
+        }
+
+        public bool Redo()
+        {
+            if (!History.CanRedo) return false;
+            var mv = History.PopRedo();
+            ApplyMove(mv);
             return true;
         }
 
@@ -64,6 +97,39 @@ namespace Chess3D.Core
         public void ForceRebuild()
         {
             RebuildAllPieces();
+        }
+
+        public void ResetGame()
+        {
+            State = BoardState.CreateInitial();
+            History.Reset();
+            CurrentResult = GameResult.Ongoing;
+            RebuildAllPieces();
+            OnBoardReset?.Invoke(State);
+            OnBoardChanged?.Invoke(State);
+        }
+
+        // Convenience helpers for FEN ----------------------------------------------------
+        public string GetFEN()
+        {
+            return Fen.Export(State);
+        }
+
+        public void LoadFEN(string fen)
+        {
+            try
+            {
+                State = Fen.Import(fen);
+                History.Reset();
+                CurrentResult = GameResult.Ongoing;
+                RebuildAllPieces();
+                OnBoardReset?.Invoke(State);
+                OnBoardChanged?.Invoke(State);
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[BoardSynchronizer] FEN inválido: {ex.Message}");
+            }
         }
 
         private void RebuildAllPieces()

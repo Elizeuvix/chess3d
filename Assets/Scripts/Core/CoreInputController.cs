@@ -20,15 +20,75 @@ namespace Chess3D.Core
         void Start()
         {
             if (cam == null) cam = Camera.main;
+            if (synchronizer == null) synchronizer = FindObjectOfType<BoardSynchronizer>();
+            if (highlightManager == null) highlightManager = FindObjectOfType<MoveHighlightManager>();
+            if (synchronizer != null)
+            {
+                synchronizer.OnBoardReset += HandleBoardReset;
+                synchronizer.OnBoardChanged += HandleBoardChanged;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (synchronizer != null)
+            {
+                synchronizer.OnBoardReset -= HandleBoardReset;
+                synchronizer.OnBoardChanged -= HandleBoardChanged;
+            }
         }
 
         void Update()
         {
+            // Undo / Redo rápidos
+            if (Input.GetKeyDown(KeyCode.Z))
+            {
+                if (synchronizer != null && synchronizer.History.CanUndo)
+                {
+                    synchronizer.UndoLast();
+                    if (highlightManager != null) highlightManager.Clear();
+                    selected = null; cachedMoves = new Move[0];
+                }
+            }
+            if (Input.GetKeyDown(KeyCode.Y))
+            {
+                if (synchronizer != null && synchronizer.History.CanRedo)
+                {
+                    synchronizer.Redo();
+                    if (highlightManager != null) highlightManager.Clear();
+                    selected = null; cachedMoves = new Move[0];
+                }
+            }
+
+            // Bloquear input se jogo terminou
+            if (synchronizer != null && synchronizer.CurrentResult != GameResult.Ongoing)
+            {
+                return;
+            }
+            // Cancelar seleção com botão direito
+            if (Input.GetMouseButtonDown(1))
+            {
+                if (selected != null)
+                {
+                    if (highlightManager != null)
+                    {
+                        highlightManager.Clear();
+                        highlightManager.ClearSelectedOrigin();
+                    }
+                    selected = null; cachedMoves = new Move[0];
+                    if (debugLogs) Debug.Log("[CoreInput] Seleção cancelada (clique direito).");
+                }
+                return;
+            }
             if (Input.GetMouseButtonDown(0))
             {
                 if (RaycastBoard(out var square))
                 {
                     HandleClick(square.x, square.y);
+                }
+                else if (debugLogs)
+                {
+                    Debug.Log("[CoreInput] Clique não atingiu nenhuma casa (raycast). Verifique Layer/Collider das casas.");
                 }
             }
         }
@@ -46,13 +106,50 @@ namespace Chess3D.Core
                         .Where(m => m.FromX == x && m.FromY == y)
                         .ToArray();
                     if (highlightManager != null)
+                    {
                         highlightManager.ShowMoves(cachedMoves);
+                        highlightManager.ShowSelectedOrigin(x,y);
+                    }
+                }
+                else
+                {
+                    HandleSelectionFailure(x, y);
                 }
             }
             else
             {
                 // Attempt move
                 var (sx,sy) = selected.Value;
+                // Clique na própria casa selecionada: cancelar seleção
+                if (x == sx && y == sy)
+                {
+                    if (highlightManager != null)
+                    {
+                        highlightManager.Clear();
+                        highlightManager.ClearSelectedOrigin();
+                    }
+                    selected = null; cachedMoves = new Move[0];
+                    if (debugLogs) Debug.Log("[CoreInput] Seleção cancelada (clique na mesma casa).");
+                    return;
+                }
+
+                // Clique em outra peça do lado a mover: trocar seleção
+                var clickedPiece = synchronizer.State.GetPiece(x,y);
+                if (clickedPiece != null && clickedPiece.Color == synchronizer.State.SideToMove)
+                {
+                    selected = (x,y);
+                    cachedMoves = MoveGenerator.GenerateLegalMoves(synchronizer.State)
+                        .Where(m => m.FromX == x && m.FromY == y)
+                        .ToArray();
+                    if (highlightManager != null)
+                    {
+                        highlightManager.ShowMoves(cachedMoves);
+                        highlightManager.ShowSelectedOrigin(x,y);
+                    }
+                    if (debugLogs) Debug.Log($"[CoreInput] Seleção trocada para {x},{y}.");
+                    return;
+                }
+
                 var found = false;
                 // Coletar todos os movimentos que chegam ao destino
                 var destMoves = cachedMoves.Where(m=>m.ToX==x && m.ToY==y).ToList();
@@ -138,7 +235,10 @@ namespace Chess3D.Core
                     return;
                 }
                 if (highlightManager != null)
+                {
                     highlightManager.Clear();
+                    highlightManager.ClearSelectedOrigin();
+                }
                 selected = null;
                 cachedMoves = new Move[0];
             }
@@ -149,28 +249,89 @@ namespace Chess3D.Core
             square = default;
             if (cam == null) return false;
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, 100f, boardLayer))
+            // RaycastAll e prioriza qualquer hit que tenha SquareRef (as casas)
+            var hits = Physics.RaycastAll(ray, Mathf.Infinity, ~0, QueryTriggerInteraction.Collide);
+            if (hits != null && hits.Length > 0)
             {
-                // Primeiro tenta SquareRef direto no objeto ou em pais
-                var sr = hit.collider.GetComponent<SquareRef>();
-                if (sr == null) sr = hit.collider.GetComponentInParent<SquareRef>();
-                if (sr != null)
+                foreach (var h in hits.OrderBy(h => h.distance))
                 {
-                    if (sr.x>=0 && sr.x<8 && sr.y>=0 && sr.y<8)
+                    var sr = h.collider.GetComponent<SquareRef>() ?? h.collider.GetComponentInParent<SquareRef>();
+                    if (sr != null && sr.x>=0 && sr.x<8 && sr.y>=0 && sr.y<8)
                     {
                         square = (sr.x, sr.y);
                         return true;
                     }
                 }
-                // Fallback: cálculo por posição
+                // Se nenhuma casa tiver SquareRef (ex.: tabuleiro único), usa o hit mais próximo
+                var hit = hits.OrderBy(h => h.distance).First();
                 Vector3 local = hit.point - synchronizer.originOffset;
                 float fx = local.x / synchronizer.squareSize;
                 float fy = local.z / synchronizer.squareSize;
-                int x = Mathf.RoundToInt(fx);
-                int y = Mathf.RoundToInt(fy);
+                int x = Mathf.Clamp(Mathf.RoundToInt(fx), 0, 7);
+                int y = Mathf.Clamp(Mathf.RoundToInt(fy), 0, 7);
                 if (x>=0 && x<8 && y>=0 && y<8) { square = (x,y); return true; }
             }
+            // Fallback final: projetar o raio num plano horizontal passando por originOffset.y (mesmo sem colliders)
+            var plane = new Plane(Vector3.up, new Vector3(0f, synchronizer.originOffset.y, 0f));
+            if (plane.Raycast(ray, out float enter))
+            {
+                var point = ray.GetPoint(enter);
+                Vector3 local = point - synchronizer.originOffset;
+                float fx = local.x / synchronizer.squareSize;
+                float fy = local.z / synchronizer.squareSize;
+                int x = Mathf.Clamp(Mathf.RoundToInt(fx), 0, 7);
+                int y = Mathf.Clamp(Mathf.RoundToInt(fy), 0, 7);
+                if (x>=0 && x<8 && y>=0 && y<8)
+                {
+                    square = (x,y);
+                    if (debugLogs)
+                        Debug.Log($"[CoreInput] Raycast fallback por plano usou ponto {point} -> square {x},{y}");
+                    return true;
+                }
+                else if (debugLogs)
+                {
+                    Debug.Log($"[CoreInput] Fallback de plano calculou fora do tabuleiro: fx={fx:F2}, fy={fy:F2}");
+                }
+            }
             return false;
+        }
+
+        private void HandleSelectionFailure(int x, int y)
+        {
+            if (!debugLogs) return;
+            var piece = synchronizer.State.GetPiece(x, y);
+            if (piece == null)
+            {
+                Debug.Log($"[CoreInput] Nenhuma peça em {x},{y}.");
+            }
+            else
+            {
+                Debug.Log($"[CoreInput] Peça em {x},{y} não é do lado a mover ({piece.Color}-{piece.Type}, sideToMove={synchronizer.State.SideToMove}).");
+            }
+        }
+
+        private void HandleBoardReset(BoardState state)
+        {
+            // Limpa qualquer seleção e destaques pendentes ao reiniciar o tabuleiro
+            selected = null;
+            cachedMoves = new Move[0];
+            if (highlightManager != null)
+            {
+                highlightManager.Clear();
+                highlightManager.ClearSelectedOrigin();
+            }
+        }
+
+        private void HandleBoardChanged(BoardState state)
+        {
+            // Em qualquer mudança global do tabuleiro (inclusive Undo/Redo), limpamos seleção/visuals locais
+            selected = null;
+            cachedMoves = new Move[0];
+            if (highlightManager != null)
+            {
+                highlightManager.Clear();
+                highlightManager.ClearSelectedOrigin();
+            }
         }
     }
 }

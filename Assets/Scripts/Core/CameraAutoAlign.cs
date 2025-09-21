@@ -16,10 +16,13 @@ namespace Chess3D.Core
         public bool applyOnUpdateInEditor = true; // atualizar em tempo real no editor
         public bool onlyIfSceneView = false; // se quiser evitar mexer em play runtime
 
-        [Header("Opções de Enquadramento")] public bool orthographicMode = true;
+        public enum CameraPreset { TopDownOrtho, Isometric, LowAngleCinematic }
+
+    [Header("Opções de Enquadramento")] public bool orthographicMode = false;
+        public CameraPreset preset = CameraPreset.Isometric;
         public float orthoPadding = 0.2f; // margem extra
         public float perspectiveFOV = 50f;
-        public float perspectiveDistanceMultiplier = 1.15f;
+    public float perspectiveDistanceMultiplier = 0.9f;
         public Vector3 topDirection = Vector3.down; // direção para olhar para baixo (default -Y)
         public Vector3 boardUp = Vector3.up;
 
@@ -28,9 +31,34 @@ namespace Chess3D.Core
 
         [Header("Rotação Dinâmica")]
         public bool faceFromWhiteSide = true;
-        public bool rotateWithSideToMove = false; // (futuro) girar 180° quando lado a mover mudar
+        public bool rotateWithSideToMove = false; // girar 180° quando lado a mover mudar
+
+        [Header("Transições Suaves")]
+        public bool smoothTransition = true;
+        [Tooltip("Tempo de amortecimento (seg) para posição. Rotação usa Lerp com velocidade proporcional.")]
+        public float smoothTime = 0.25f;
+        public float rotationLerpSpeed = 10f;
+    [Tooltip("Se verdadeiro, pausa as atualizações de câmera enquanto o usuário está orbitando/zoom/pan (evita trepidação).")]
+    public bool suspendWhileUserInput = true;
+    [Tooltip("Se verdadeiro, desabilita qualquer escrita de transform quando um CameraOrbitController ativo está presente (você assume controle manual).")]
+    public bool disableIfOrbitControllerPresent = false;
+
+    [Header("Ângulos de Preset (graus)")]
+    [Range(0f, 89f)] public float isometricTilt = 50f; // inclinação para ISO
+        [Range(0f, 89f)] public float lowAngleTilt = 25f;  // inclinação para Cinematic
+        [Range(-180f, 180f)] public float additionalYaw = 0f; // ajuste fino de yaw
 
         private Camera _cam;
+        private Vector3 _posVel;
+        private Quaternion _targetRot;
+        private Vector3 _targetPos;
+        private bool _initialized;
+        private PieceColor _lastSideToMove = PieceColor.White;
+    private CameraOrbitController _orbit;
+
+    // Guardar delegates para desinscrever corretamente
+    private System.Action<BoardState> _onBoardResetHandler;
+    private System.Action<BoardState> _onBoardChangedHandler;
 
         void OnEnable()
         {
@@ -38,6 +66,16 @@ namespace Chess3D.Core
             if (autoFindSynchronizer && synchronizer == null)
             {
                 synchronizer = FindObjectOfType<BoardSynchronizer>();
+            }
+            _orbit = GetComponent<CameraOrbitController>();
+            if (synchronizer != null)
+            {
+                synchronizer.OnMoveApplied += HandleMoveApplied;
+                _onBoardResetHandler = OnBoardReset;
+                _onBoardChangedHandler = OnBoardChanged;
+                synchronizer.OnBoardReset += _onBoardResetHandler;
+                synchronizer.OnBoardChanged += _onBoardChangedHandler;
+                _lastSideToMove = synchronizer.State.SideToMove;
             }
             if (applyOnStart) Apply();
         }
@@ -57,7 +95,31 @@ namespace Chess3D.Core
 #endif
         }
 
-        public void Apply()
+        void OnDisable()
+        {
+            if (synchronizer != null)
+            {
+                synchronizer.OnMoveApplied -= HandleMoveApplied;
+                if (_onBoardResetHandler != null) synchronizer.OnBoardReset -= _onBoardResetHandler;
+                if (_onBoardChangedHandler != null) synchronizer.OnBoardChanged -= _onBoardChangedHandler;
+            }
+        }
+
+        private void HandleMoveApplied(Move mv, BoardState state)
+        {
+            if (rotateWithSideToMove)
+            {
+                // Se lado a mover mudou, alterna a visão
+                if (state.SideToMove != _lastSideToMove)
+                {
+                    faceFromWhiteSide = (state.SideToMove == PieceColor.White);
+                    _lastSideToMove = state.SideToMove;
+                    Apply();
+                }
+            }
+        }
+
+        public void Apply(bool instant = false)
         {
             if (_cam == null) _cam = GetComponent<Camera>();
             if (_cam == null) return;
@@ -85,35 +147,105 @@ namespace Chess3D.Core
                 // Forçar direção para baixo consistente
                 Vector3 downDir = -upDir;
                 float camHeight = halfExtent * 2f; // altura proporcional (não afeta escala ortográfica)
-                transform.position = boardCenter + upDir * camHeight + manualOffset;
-                // Olhar para o centro (evita inversões como olhar para cima)
-                transform.rotation = Quaternion.LookRotation((boardCenter - transform.position).normalized, upDir);
+                _targetPos = boardCenter + upDir * camHeight + manualOffset;
+                _targetRot = Quaternion.LookRotation((boardCenter - _targetPos).normalized, upDir);
             }
             else
             {
                 _cam.orthographic = false;
                 _cam.fieldOfView = perspectiveFOV;
-                // Aponta câmera levemente inclinada do lado das brancas ou neutro
-                Vector3 forwardBase;
-                if (faceFromWhiteSide)
+                // Selecionar tilt/yaw a partir do preset
+                float tilt = isometricTilt;
+                switch (preset)
                 {
-                    // Olha na direção positiva de z? Depende de convenção sua; assumindo axis +z vai para ranks maiores
-                    forwardBase = (boardCenter - (origin + new Vector3(3.5f * squareSize, 0, -4f * squareSize))); // heurístico posicionar atrás das brancas
+                    case CameraPreset.Isometric: tilt = isometricTilt; break;
+                    case CameraPreset.LowAngleCinematic: tilt = lowAngleTilt; break;
+                    case CameraPreset.TopDownOrtho: tilt = 89f; break;
                 }
-                else
+                float yaw = faceFromWhiteSide ? 0f : 180f;
+                yaw += additionalYaw;
+                // Distância proporcional ao tabuleiro
+                float extent = (8 * squareSize);
+                float distance = extent * perspectiveDistanceMultiplier;
+                // Converter tilt para componentes vertical/horizontal
+                float tRad = Mathf.Deg2Rad * Mathf.Clamp(tilt, 0.01f, 89f);
+                float upComp = Mathf.Sin(tRad) * distance;
+                float backComp = Mathf.Cos(tRad) * distance;
+                Vector3 dirFlat = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                Vector3 camPos = boardCenter - dirFlat * backComp + Vector3.up * upComp;
+                _targetPos = camPos + manualOffset;
+                _targetRot = Quaternion.LookRotation((boardCenter - _targetPos).normalized, boardUp);
+            }
+
+            if (!smoothTransition || !_initialized || instant)
+            {
+                transform.position = _targetPos;
+                transform.rotation = _targetRot;
+                _initialized = true;
+            }
+            else
+            {
+                // Aplicar suavização na próxima Update
+            }
+        }
+
+        [ContextMenu("Apply Now (Instant)")]
+        private void ApplyNowContextMenu()
+        {
+            Apply(true);
+        }
+
+        [ContextMenu("Preset: Board Showcase (White)")]
+        private void ApplyPresetBoardShowcaseWhite()
+        {
+            // Approximate the look in your screenshot: perspective, isometric tilt, closer framing, from white side
+            orthographicMode = false;
+            preset = CameraPreset.Isometric;
+            isometricTilt = 42f;
+            perspectiveFOV = 50f;
+            perspectiveDistanceMultiplier = 0.85f;
+            faceFromWhiteSide = true;
+            additionalYaw = 0f;
+            smoothTransition = true;
+            Apply(true);
+        }
+
+        void LateUpdate()
+        {
+            if (!smoothTransition || !_initialized) return;
+            // Se há um controlador de órbita e está ativo, podemos pausar nossas escritas para evitar luta de controles
+            if (_orbit != null && _orbit.enabled)
+            {
+                if (disableIfOrbitControllerPresent) return;
+                if (suspendWhileUserInput && _orbit.IsUserActive)
                 {
-                    forwardBase = Vector3.down; // fallback
+                    // Enquanto o usuário está ativo, não mexe.
+                    return;
                 }
-                Vector3 lookTarget = boardCenter;
-                forwardBase.y = 0;
-                if (forwardBase.sqrMagnitude < 0.1f) forwardBase = Vector3.forward;
-                forwardBase.Normalize();
-                // Elevar câmera
-                float distance = (8 * squareSize) * perspectiveDistanceMultiplier;
-                float elevate = distance * 0.65f;
-                Vector3 camPos = boardCenter - forwardBase * distance + Vector3.up * elevate;
-                transform.position = camPos + manualOffset;
-                transform.rotation = Quaternion.LookRotation((lookTarget - transform.position).normalized, boardUp);
+                // Se o usuário acabou de soltar, aceita a pose atual como alvo para evitar um "pulo" pós-órbita.
+                if (!_orbit.IsUserActive)
+                {
+                    _targetPos = transform.position;
+                    _targetRot = transform.rotation;
+                }
+            }
+            // Suavizar posição
+            transform.position = Vector3.SmoothDamp(transform.position, _targetPos, ref _posVel, Mathf.Max(0.0001f, smoothTime));
+            // Suavizar rotação
+            transform.rotation = Quaternion.Slerp(transform.rotation, _targetRot, Mathf.Clamp01(rotationLerpSpeed * Time.deltaTime));
+        }
+
+        private void OnBoardReset(BoardState state)
+        {
+            // Em reset, aplicamos instantâneo para evitar transições estranhas
+            Apply(true);
+        }
+
+        private void OnBoardChanged(BoardState state)
+        {
+            if (rotateWithSideToMove)
+            {
+                Apply();
             }
         }
     }

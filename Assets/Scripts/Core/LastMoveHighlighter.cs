@@ -20,6 +20,18 @@ namespace Chess3D.Core
             if (synchronizer != null)
             {
                 synchronizer.OnMoveApplied += HandleMoveApplied;
+                synchronizer.OnBoardReset += HandleBoardReset;
+                synchronizer.OnBoardChanged += HandleBoardChanged;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (synchronizer != null)
+            {
+                synchronizer.OnMoveApplied -= HandleMoveApplied;
+                synchronizer.OnBoardReset -= HandleBoardReset;
+                synchronizer.OnBoardChanged -= HandleBoardChanged;
             }
         }
 
@@ -67,6 +79,25 @@ namespace Chess3D.Core
                 var mv = _lastMove.Value;
                 PositionMarker(_originInst, mv.FromX, mv.FromY);
                 PositionMarker(_destInst, mv.ToX, mv.ToY);
+            }
+        }
+
+        private void HandleBoardReset(BoardState state)
+        {
+            _lastMove = null;
+            Hide();
+        }
+
+        private void HandleBoardChanged(BoardState state)
+        {
+            // Após Undo/Redo ou outras mudanças, atualizar ou esconder conforme disponível
+            if (_lastMove.HasValue)
+            {
+                Refresh();
+            }
+            else
+            {
+                Hide();
             }
         }
     }

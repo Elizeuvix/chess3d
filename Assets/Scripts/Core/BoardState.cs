@@ -53,6 +53,17 @@ namespace Chess3D.Core
         public void ResetHalfmoveClock() => HalfmoveClock = 0;
         public void IncrementHalfmoveClock() => HalfmoveClock++;
 
+        // Setters for FEN import
+        public void SetHalfmoveClock(int value) => HalfmoveClock = System.Math.Max(0, value);
+        public void SetFullmoveNumber(int value) => FullmoveNumber = System.Math.Max(1, value);
+        public void SetCastlingRights(bool whiteK, bool whiteQ, bool blackK, bool blackQ)
+        {
+            WhiteCanCastleKingSide = whiteK;
+            WhiteCanCastleQueenSide = whiteQ;
+            BlackCanCastleKingSide = blackK;
+            BlackCanCastleQueenSide = blackQ;
+        }
+
         public static BoardState CreateInitial()
         {
             var b = new BoardState();

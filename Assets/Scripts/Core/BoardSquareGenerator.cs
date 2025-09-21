@@ -29,6 +29,12 @@ namespace Chess3D.Core
     // Controle interno para regeneração segura em modo editor (evita DestroyImmediate em OnValidate)
     private bool _pendingRegenerateEditor;
 
+    [Header("Sync com Peças")]
+    [Tooltip("Se verdadeiro, ajusta automaticamente o pieceBaseY do BoardSynchronizer para o topo da casa (após gerar).")]
+    public bool setPieceBaseToSquareTop = true;
+    [Tooltip("Offset adicional aplicado sobre o topo da casa ao definir pieceBaseY (ex.: 0.005 para evitar clipping).")]
+    public float pieceBaseExtraOffset = 0f;
+
         /// <summary>
         /// Gera ou regenera as casas.
         /// </summary>
@@ -75,6 +81,7 @@ namespace Chess3D.Core
                 origin -= new Vector3(squareSize * 7 / 2f, 0f, squareSize * 7 / 2f);
             }
 
+            float lastTopY = 0f;
             for (int x = 0; x < 8; x++)
             for (int y = 0; y < 8; y++)
             {
@@ -89,8 +96,11 @@ namespace Chess3D.Core
                 var mr = go.GetComponentInChildren<MeshRenderer>();
                 if (mr != null)
                 {
-                    bool dark = (x + y) % 2 == 1;
+                    // Convenção: a1 (0,0) é casa escura. Portanto, (x+y)%2 == 0 -> escura
+                    bool dark = (x + y) % 2 == 0;
                     mr.sharedMaterial = dark ? darkMaterial : lightMaterial;
+                    // Registrar topo desta casa
+                    lastTopY = mr.bounds.max.y;
                 }
 
                 // Collider para raycast de seleção
@@ -134,6 +144,11 @@ namespace Chess3D.Core
                 else
                 {
                     synchronizer.originOffset = transform.position; // assume pivot no canto
+                }
+
+                if (setPieceBaseToSquareTop)
+                {
+                    synchronizer.pieceBaseY = lastTopY + pieceBaseExtraOffset;
                 }
             }
         }
