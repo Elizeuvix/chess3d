@@ -26,9 +26,13 @@ namespace Chess3D.Core
             if (enableAIToggle != null)
             {
                 enableAIToggle.isOn = false;
-                
                 if (ai != null) ai.enableAI = false;
                 if (panelPvE != null) panelPvE.SetActive(false);
+                if (enableTCPToggle != null)
+                {
+                    enableTCPToggle.isOn = false;
+                    enableTCPToggle.interactable = false;
+                }
                 enableAIToggle.onValueChanged.AddListener(val =>
                 {
                     if (gameStarted && val)
@@ -42,6 +46,24 @@ namespace Chess3D.Core
                     }
                     if (ai != null) ai.enableAI = val;
                     if (panelPvE != null) panelPvE.SetActive(enableAIToggle.isOn);
+                    if (enableTCPToggle != null)
+                    {
+                        if (val) // IA ativada
+                        {
+                            enableTCPToggle.isOn = false;
+                            enableTCPToggle.interactable = false;
+                        }
+                        else // IA desativada
+                        {
+                            enableTCPToggle.interactable = true;
+                        }
+                    }
+                    // Desabilita painel de conexão remota
+                    var lobbyUI = FindObjectOfType<Chess3D.Online.OnlineLobbyUI>(true);
+                    if (lobbyUI != null && lobbyUI.targetPanel != null)
+                    {
+                        lobbyUI.targetPanel.SetActive(!val);
+                    }
                     UpdateStatus();
                 });                
             }
@@ -77,6 +99,12 @@ namespace Chess3D.Core
                 string cor = ai.aiColor == PieceColor.White ? "Brancas" : "Pretas";
                 string st = ai.enableAI ? $"IA ativa para: {cor}" : "IA desativada";
                 statusText.text = st;
+            }
+            if (enableTCPToggle != null)
+            {
+                enableTCPToggle.interactable = !(ai != null && ai.enableAI);
+                if (ai != null && ai.enableAI)
+                    enableTCPToggle.isOn = false;
             }
         }
 

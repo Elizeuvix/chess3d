@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections;
 using UnityEngine.UI;
 
-
 namespace Chess3D.Core
 {
     // IA simples: joga automaticamente para o lado configurado
@@ -14,6 +13,7 @@ namespace Chess3D.Core
         public PieceColor aiColor = PieceColor.Black;
         public float moveDelay = 1.0f; // segundos entre jogadas
         public bool enableAI = false;
+        [SerializeField] public Toggle aiIndicator;
 
         void Awake()
         {
